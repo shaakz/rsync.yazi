@@ -35,7 +35,7 @@ desc = "Copy files using rsync"
 ```toml
 [[mgr.prepend_keymap]]
 on   = [ "R" ]
-run  = "plugin rsync --args='user@server.com'"
+run  = "plugin rsync 'user@server.com'"
 desc = "Copy files using rsync to default location"
 ```
 
