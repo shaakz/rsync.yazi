@@ -65,7 +65,7 @@ return {
 		local dest, ok = ya.input({
 			title = "Rsync - [user]@[remote]:<destination>",
 			value = default_dest or nil,
-			position = { "top-center", y = 3, w = 45 },
+			pos = { "top-center", y = 3, w = 45 },
 		})
 		if ok ~= 1 then
 			return
