@@ -1,50 +1,56 @@
-# Rsync.yazi
+# rsync.yazi
 
-A [yazi](https://yazi-rs.github.io/) plugin for simple rsync copying locally and up to remote servers.
+A [yazi](https://yazi-rs.github.io/) plugin for copying files with rsync, locally or to a remote server.
 
-![Demo](assets/demo.gif)
-Thanks to [chrissabug](https://x.com/chrissabug) for creating lovely art!
+Select files, press a key, pick a destination — with a live progress bar in the status line.
 
-## Features
+## Requirements
 
-- Copy the selected (or hovered) files to any local or remote destination
-- A live progress bar in the status line while the transfer runs
-- Preconfigured targets, offered as a one-keypress menu
-- Creates the destination folder if it doesn't exist yet
-
-## Pre-Reqs
-
-1. yazi latest version preferred
-2. rsync
-3. passwordless authentication if copying to a remote server
+- yazi 25.x or newer
+- rsync (3.2.3+ recommended, for `--mkpath`)
+- passwordless SSH authentication if copying to a remote server
 
 ## Installation
 
 ```sh
-ya pkg add GianniBYoung/rsync
+ya pkg add shaakz/rsync
 ```
 
-## Usage
-
-Add the bind to your `~/.config/yazi/keymap.toml`
-
-**WARNING:** Make sure the chosen binding isn't already in use!!
+Add a binding to `~/.config/yazi/keymap.toml` — make sure it isn't already in use:
 
 ```toml
 [[mgr.prepend_keymap]]
 on   = [ "R" ]
-run  = "plugin rsync"
+run  = "plugin rsync -- --remember"
 desc = "Copy files using rsync"
 ```
 
-The destination you type is always a **folder to copy into** — the selection is
-placed inside it. This holds whether you have one file selected or fifty, so you
-never have to retype a filename.
+## Usage
 
-### Preconfigured Targets
+Select some files (or just hover one) and press the key. You get a menu of your
+configured destinations; pick one and it prefills the input, where you can
+append a subfolder before confirming.
 
-Set up the places you copy to most often in `~/.config/yazi/init.lua`, and they
-are offered as a menu when the plugin runs:
+The destination is always a **folder to copy into** — the selection is placed
+inside it, whether that's one file or fifty. The folder doesn't need to exist;
+it's created for you.
+
+Press `<Esc>` at the menu to skip it and type a destination that isn't in your
+list.
+
+While the transfer runs, a bar appears on the right of the status line:
+
+```
+ rsync ████░░░░░░  47% 9.49MB/s 1/3
+```
+
+It shows the overall percentage, rate, and files completed, and disappears when
+the transfer ends. Quitting yazi mid-transfer cancels it — `--partial` is on, so
+re-running resumes rather than starting over.
+
+## Configuration
+
+Set up your destinations in `~/.config/yazi/init.lua`:
 
 ```lua
 require("rsync"):setup {
@@ -56,92 +62,56 @@ require("rsync"):setup {
 }
 ```
 
-Picking one prefills the input with its `url`, so you can still append a
-subfolder before confirming. Press `<Esc>` at the menu to skip it and type a
-destination that isn't in the list.
+Each target needs a key (`on`), a label (`desc`), and a destination (`url`).
+Keys must be unique. Restart yazi after editing — `init.lua` is only read at
+startup.
+
+Pointing a target at a parent folder and typing the subfolder each time works
+well, since missing folders are created automatically.
 
 ### Options
 
-All are optional:
-
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `targets` | `{}` | Target menu entries: `on` (key), `desc` (label), `url` (destination) |
+| `targets` | `{}` | Destination menu entries |
 | `mkpath` | `true` | Create the destination folder if it doesn't exist |
-| `bar_width` | `10` | Width of the status-line progress bar, in cells |
+| `bar_width` | `10` | Width of the progress bar, in cells |
 | `status_order` | `1500` | Where the bar sits among the status line's right-hand items |
 | `extra_args` | `{}` | Extra rsync flags, e.g. `{ "--exclude=.DS_Store" }` |
 
 `mkpath` needs rsync 3.2.3+ on both ends. If the far end is older, the plugin
 notices and retries without it rather than failing.
 
-### Progress
+### Flags
 
-While a transfer runs, a bar appears on the right of the status line with the
-overall percentage, transfer rate, and how many files are done:
+| Flag | Effect |
+| --- | --- |
+| `--remember` | Cache the last destination and prefill it next time |
+| `--no-pick` | Skip the target menu and go straight to the input |
 
-```
- rsync ████░░░░░░  47% 9.49MB/s 1/3
-```
-
-It is added when the transfer starts and removed when it ends, so it doesn't
-take up room the rest of the time. Quitting yazi mid-transfer cancels it —
-`--partial` is on, so re-running resumes rather than starting over.
-
-### Specify Default Remote Server
-
-A positional argument is used as the default destination when no target is
-picked:
+A positional argument sets the default destination when no target is picked:
 
 ```toml
-[[mgr.prepend_keymap]]
-on   = [ "R" ]
-run  = "plugin rsync 'user@server.com:~/incoming/'"
-desc = "Copy files using rsync to default location"
+run = "plugin rsync 'user@server.com:~/incoming/'"
 ```
 
-### Remember Last Target
-
-Use `--remember` to cache the last used target. On next invocation, the input
-field will be pre-filled with the cached target.
-
-```toml
-[[mgr.prepend_keymap]]
-on   = [ "R" ]
-run  = "plugin rsync -- --remember"
-desc = "Copy files using rsync (remember target)"
-```
-
-**Note:** The target is stored in `~/.local/state/yazi/rsync.yazi.last_target`.
-A picked target takes precedence over the cached one; the cache is what you get
-when you press `<Esc>` at the target menu.
-
-### Skip The Target Menu
-
-`--no-pick` goes straight to the input, even when targets are configured:
-
-```toml
-run = "plugin rsync -- --no-pick --remember"
-```
-
-## Upgrading from earlier versions
-
-- **The destination is now always treated as a folder.** Previously, selecting a
-  single file prefilled the full destination *filename*. It now prefills the
-  folder, matching the multi-file behaviour.
-- **The `--remember` cache moved** from `~/.config/yazi/plugins/rsync.yazi/.last_target`
-  to `~/.local/state/yazi/rsync.yazi.last_target`, so it survives `ya pkg upgrade`.
-  The old location is still read once as a fallback.
+The `--remember` cache lives in `~/.local/state/yazi/rsync.yazi.last_target`. A
+picked target takes precedence over it; the cache is what you get when you press
+`<Esc>` at the menu.
 
 ## Troubleshooting
 
-Basic logging information is sent to `~/.local/state/yazi/yazi.log`
+Logs are written to `~/.local/state/yazi/yazi.log`.
 
-*Note: This plugin has only been tested on Linux and macOS
+## Credits
 
-## Contributing
+A fork of [GianniBYoung/rsync.yazi](https://github.com/GianniBYoung/rsync.yazi)
+by [Gianni B. Young](https://github.com/GianniBYoung), which this builds on.
+Original demo art by [chrissabug](https://x.com/chrissabug).
 
-Run into a bug or want a certain feature added? Submit an issue!
+This fork adds the status-line progress bar and the configurable target menu,
+and changes the destination to always be a folder rather than a full filename.
 
-- Give it a star if you like it ⭐!
-- PRs welcome :)
+## License
+
+See [LICENSE](LICENSE).
